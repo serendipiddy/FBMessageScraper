@@ -93,6 +93,8 @@ while end_mark not in messages_data:
 			else:
 				# print("omitting \"{0}\"".format(json_data['payload']['actions'][-1]["body"]))
 				messages = messages + json_data['payload']['actions'][:-1]
+			if 'end_of_history' in json_data['payload']:
+				break
 		except KeyError:
 			pass #no more messages
 	else:
