@@ -19,14 +19,16 @@ __status__ = "Production"
 if len(sys.argv) <= 1:
 	print "Usage:\n 	python dumper.py [conversation ID] [chunk_size (recommended: 2000)] [{optional} offset location (default: 0)]"
 	print "Example conversation with Raghav Sood"
-	print "	python dumper.py 1075686392 2000 0"
+	print "	python dumper.py 1075686392 2000"
 	sys.exit()
 
 error_timeout = 30 # Change this to alter error timeout (seconds)
 general_timeout = 7 # Change this to alter waiting time afetr every request (seconds)
 messages = []
+last_timestamp = int(sys.argv[3]) if len(sys.argv) >= 4 else "" # "" defaults to the most recent message
 talk = sys.argv[1]
-offset = int(sys.argv[3]) if len(sys.argv) >= 4 else int("0")
+# offset = int(sys.argv[3]) if len(sys.argv) >= 4 else int("0")
+offset = int("0")
 messages_data = "lolno"
 end_mark = "\"payload\":{\"end_of_history\""
 limit = int(sys.argv[2])
@@ -59,6 +61,7 @@ while end_mark not in messages_data:
 
 	data_text = {"messages[user_ids][" + str(talk) + "][offset]": str(offset), 
 	"messages[user_ids][" + str(talk) + "][limit]": str(limit), 
+	"messages[user_ids][" + str(talk) + "][timestamp]": str(last_timestamp), 
 	"client": "web_messenger", 
 	"__user": "your_user_id", 
 	"__a": "your __a", 
@@ -83,7 +86,13 @@ while end_mark not in messages_data:
 	json_data = json.loads(messages_data)
 	if json_data is not None and json_data['payload'] is not None:
 		try:
-			messages = messages + json_data['payload']['actions']
+			# stops the first message of each chunk being repeated, since timestamps is inclusive
+			if len(last_timestamp) is 0:
+				# print("first message!")
+				messages  = messages + json_data['payload']['actions']
+			else:
+				# print("omitting \"{0}\"".format(json_data['payload']['actions'][-1]["body"]))
+				messages = messages + json_data['payload']['actions'][:-1]
 		except KeyError:
 			pass #no more messages
 	else:
@@ -92,6 +101,8 @@ while end_mark not in messages_data:
 		print json_data
 		time.sleep(error_timeout)
 		continue
+	current_messages = json_data["payload"]["actions"]
+	last_timestamp = str(current_messages[0]["timestamp"])
 	outfile.write(messages_data)
 	outfile.close()	
 	command = "python -mjson.tool " + directory + str(offset) + "-" + str(limit+offset) + ".json > " + pretty_directory + str(offset) + "-" + str(limit+offset) + ".pretty.json"
